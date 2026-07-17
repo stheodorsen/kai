@@ -149,6 +149,18 @@ const PHOTO_DATA = {
     text-align: center; color: var(--ink-soft); font-size: 0.9rem;
     padding: 36px 0 30px;
   }
+
+  /* ---------- sound toggle ---------- */
+  #sound-toggle {
+    position: fixed; top: 14px; right: 14px; z-index: 20;
+    width: 46px; height: 46px; border-radius: 50%;
+    border: 1px solid var(--line); background: var(--card);
+    box-shadow: var(--shadow); cursor: pointer;
+    font-size: 1.3rem; line-height: 1; display: grid; place-items: center;
+    transition: transform 0.15s ease;
+  }
+  #sound-toggle:hover { transform: scale(1.08); }
+  #sound-toggle:focus-visible { outline: 3px solid var(--bead-blue); outline-offset: 2px; }
 </style>
 
 <header class="wrap">
@@ -212,46 +224,55 @@ const PHOTO_DATA = {
       title: "Charmander",
       note: "A fire Pokémon! The flame on the tail is its own piece.",
       photo: "photos/charmander.jpg",
+      sound: "fire",
     },
     {
       title: "Poké Ball",
       note: "For catching Pokémon. Gotta catch 'em all!",
       photo: "photos/pokeball.jpg",
+      sound: "capture",
     },
     {
       title: "Clownfish",
       note: "A clownfish swimming next to the seaweed.",
       photo: "photos/clownfish.jpg",
+      sound: "bubble",
     },
     {
       title: "Minecraft Spider",
       note: "A spider from Minecraft — count the red eyes!",
       photo: "photos/spider.jpg",
+      sound: "skitter",
     },
     {
       title: "Diamond Pickaxe",
       note: "A diamond pickaxe from Minecraft, ready for mining.",
       photo: "photos/pickaxe.jpg",
+      sound: "clink",
     },
     {
       title: "Lightning Star",
       note: "An electric star, zapping in yellow and black.",
       photo: "photos/star.jpg",
+      sound: "zap",
     },
     {
       title: "Mystery Buddy",
       note: "Can you guess what it is? Write to me if you know!",
       photo: "photos/buddy.jpg",
+      sound: "mystery",
     },
     {
       title: "Rainbow Bracelets",
       note: "Seven stripy bracelets — one for every day of the week.",
       photo: "photos/bracelets.jpg",
+      sound: "rainbow",
     },
     {
       title: "Creeper",
       note: "A Minecraft Creeper — sneak up quietly or it goes BOOM!",
       photo: "photos/creeper.jpg",
+      sound: "creeper",
     },  ];
 
   /* ------------- no need to edit below this line ------------- */
@@ -298,10 +319,134 @@ const PHOTO_DATA = {
     return svg;
   }
 
+  /* ---------- hover sound effects (Web Audio, no files needed) ---------- */
+  const Sound = (() => {
+    let ctx = null, master = null, muted = false;
+    try { muted = localStorage.getItem("kai-muted") === "1"; } catch (e) {}
+
+    function ensure() {
+      if (!ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        ctx = new AC();
+        master = ctx.createGain();
+        master.gain.value = 0.28;
+        master.connect(ctx.destination);
+      }
+      if (ctx.state === "suspended") ctx.resume();
+      return ctx;
+    }
+
+    // a short blip, optionally gliding from freq -> to
+    function tone(t0, { freq, to, type = "sine", dur = 0.2, gain = 0.6, delay = 0 }) {
+      const s = t0 + delay, o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(freq, s);
+      if (to) o.frequency.exponentialRampToValueAtTime(to, s + dur);
+      g.gain.setValueAtTime(0.0001, s);
+      g.gain.exponentialRampToValueAtTime(gain, s + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, s + dur);
+      o.connect(g).connect(master);
+      o.start(s); o.stop(s + dur + 0.02);
+    }
+
+    // a filtered burst of noise
+    function noise(t0, { dur = 0.2, gain = 0.5, type = "bandpass", freq = 1000, to, q = 1, delay = 0 }) {
+      const s = t0 + delay, n = Math.floor(ctx.sampleRate * dur);
+      const buf = ctx.createBuffer(1, n, ctx.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      const src = ctx.createBufferSource(); src.buffer = buf;
+      const f = ctx.createBiquadFilter();
+      f.type = type; f.frequency.setValueAtTime(freq, s); f.Q.value = q;
+      if (to) f.frequency.exponentialRampToValueAtTime(to, s + dur);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(gain, s);
+      g.gain.exponentialRampToValueAtTime(0.0001, s + dur);
+      src.connect(f).connect(g).connect(master);
+      src.start(s); src.stop(s + dur + 0.02);
+    }
+
+    const EFFECTS = {
+      fire(t) {                                              // crackling flame whoosh
+        noise(t, { type: "lowpass", freq: 1800, to: 400, dur: 0.35, gain: 0.5, q: 0.7 });
+        noise(t, { type: "highpass", freq: 3000, dur: 0.12, gain: 0.15, delay: 0.02 });
+      },
+      capture(t) {                                           // Poke Ball "ba-ding"
+        tone(t, { freq: 880, type: "square", dur: 0.09, gain: 0.35 });
+        tone(t, { freq: 1320, type: "square", dur: 0.16, gain: 0.4, delay: 0.1 });
+      },
+      bubble(t) {                                            // watery bloop
+        tone(t, { freq: 320, to: 900, type: "sine", dur: 0.18, gain: 0.6 });
+      },
+      skitter(t) {                                           // spider legs
+        for (let i = 0; i < 4; i++)
+          noise(t, { type: "highpass", freq: 4000, dur: 0.03, gain: 0.3, delay: i * 0.05 });
+      },
+      clink(t) {                                             // pickaxe on stone
+        tone(t, { freq: 2100, type: "triangle", dur: 0.16, gain: 0.4 });
+        tone(t, { freq: 3130, type: "sine", dur: 0.12, gain: 0.2 });
+      },
+      zap(t) {                                               // electric power-up
+        [523, 659, 784, 1047].forEach((f, i) =>
+          tone(t, { freq: f, type: "square", dur: 0.08, gain: 0.3, delay: i * 0.05 }));
+        noise(t, { type: "highpass", freq: 5000, dur: 0.1, gain: 0.12, delay: 0.2 });
+      },
+      mystery(t) {                                           // questioning "hmm?"
+        tone(t, { freq: 440, to: 740, type: "triangle", dur: 0.22, gain: 0.5 });
+      },
+      rainbow(t) {                                           // cheerful xylophone run
+        [523, 587, 659, 784, 880, 1047].forEach((f, i) =>
+          tone(t, { freq: f, type: "sine", dur: 0.12, gain: 0.4, delay: i * 0.045 }));
+      },
+      creeper(t) {                                           // hiss... then BOOM
+        noise(t, { type: "highpass", freq: 1500, dur: 0.22, gain: 0.35 });
+        tone(t, { freq: 180, to: 60, type: "sine", dur: 0.3, gain: 0.6, delay: 0.24 });
+        noise(t, { type: "lowpass", freq: 500, dur: 0.3, gain: 0.4, delay: 0.24 });
+      },
+    };
+
+    let last = 0;
+    function play(name) {
+      if (muted || !EFFECTS[name]) return;
+      const c = ensure();
+      if (!c) return;
+      const t = c.currentTime;
+      if (t - last < 0.08) return;                           // no machine-gun retrigger
+      last = t;
+      try { EFFECTS[name](t); } catch (e) {}
+    }
+    // browsers only allow audio after a user gesture — unlock on the first one
+    ["pointerdown", "keydown"].forEach((ev) =>
+      window.addEventListener(ev, ensure, { once: true }));
+
+    return {
+      play,
+      isMuted: () => muted,
+      setMuted: (m) => { muted = m; try { localStorage.setItem("kai-muted", m ? "1" : "0"); } catch (e) {} },
+    };
+  })();
+
+  // mute / unmute button
+  const soundToggle = document.createElement("button");
+  soundToggle.id = "sound-toggle";
+  function refreshToggle() {
+    const off = Sound.isMuted();
+    soundToggle.textContent = off ? "🔇" : "🔊";
+    soundToggle.setAttribute("aria-label", off ? "Turn creation sounds on" : "Turn creation sounds off");
+    soundToggle.setAttribute("aria-pressed", String(!off));
+  }
+  refreshToggle();
+  soundToggle.addEventListener("click", () => { Sound.setMuted(!Sound.isMuted()); refreshToggle(); });
+  document.body.appendChild(soundToggle);
+
   const galleryEl = document.getElementById("gallery");
   GALLERY.forEach((item) => {
     const card = document.createElement("article");
     card.className = "card";
+    if (item.sound) {
+      card.addEventListener("mouseenter", () => Sound.play(item.sound));
+      card.addEventListener("click", () => Sound.play(item.sound));  // taps on touch devices
+    }
     const art = document.createElement("div");
     art.className = "art";
     if (item.photo) {
