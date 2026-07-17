@@ -15,7 +15,22 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The github-pages environment gates the deploy job, so this bootstrap job
+  # (which is not gated) makes sure the Pages site uses the "workflow" build
+  # type before the deploy job's environment rules are evaluated.
+  configure:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure Pages build type is "workflow"
+        run: |
+          curl -sf -X PUT \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/pages" \
+            -d '{"build_type":"workflow"}'
+
   deploy:
+    needs: configure
     runs-on: ubuntu-latest
     environment:
       name: github-pages
