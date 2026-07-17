@@ -575,7 +575,7 @@ const PHOTO_DATA = {
     //    grows with every visit). GoatCounter returns counts as strings that
     //    may contain separators, and caches this endpoint, so it updates
     //    periodically rather than the instant you refresh.
-    fetch(`${base}/counter/TOTAL.json`)
+    fetch(`${base}/counter/TOTAL.json?nc=${Date.now()}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d) => {
         const raw = String(d.count ?? d.count_unique ?? "");
