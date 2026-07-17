@@ -149,6 +149,13 @@ const PHOTO_DATA = {
     text-align: center; color: var(--ink-soft); font-size: 0.9rem;
     padding: 36px 0 30px;
   }
+  #visitor-line {
+    margin: 0 auto 14px; display: inline-block;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 999px; padding: 8px 16px; box-shadow: var(--shadow);
+    color: var(--ink); font-size: 0.95rem;
+  }
+  #visitor-line strong { color: var(--bead-purple); }
 
   /* ---------- sound toggle ---------- */
   #sound-toggle {
@@ -202,7 +209,10 @@ const PHOTO_DATA = {
   </ul>
 </main>
 
-<footer>Made with lots of beads (and a little help from my dad).</footer>
+<footer>
+  <p id="visitor-line" hidden>👀 You are one of <strong id="visitor-count"></strong> visitors so far!</p>
+  Made with lots of beads (and a little help from my dad).
+</footer>
 
 <script>
   /* =====================================================================
@@ -215,6 +225,12 @@ const PHOTO_DATA = {
      ===================================================================== */
 
   const ARTIST_NAME = "Kai's Bead Art";
+
+  // Visitor counter (optional). Sign up free at https://www.goatcounter.com/
+  // and pick a site code, e.g. "kaisbeadart" -> kaisbeadart.goatcounter.com.
+  // Put just that code between the quotes to switch analytics on. Leave it
+  // empty ("") and nothing is tracked and no counter is shown.
+  const GOATCOUNTER_CODE = "";
 
   // Each creation shows its photo. You can also draw creations from a
   // pattern instead — a grid of letters where each letter is a bead colour:
@@ -473,6 +489,27 @@ const PHOTO_DATA = {
     card.append(art, info);
     galleryEl.appendChild(card);
   });
+
+  /* ---------- visitor analytics (GoatCounter) ---------- */
+  if (GOATCOUNTER_CODE) {
+    const base = `https://${GOATCOUNTER_CODE}.goatcounter.com`;
+    // 1) count this visit (privacy-friendly, no cookies)
+    const gc = document.createElement("script");
+    gc.async = true;
+    gc.src = "//gc.zgo.at/count.js";
+    gc.setAttribute("data-goatcounter", `${base}/count`);
+    document.body.appendChild(gc);
+    // 2) show the running visitor total on the page
+    fetch(`${base}/counter/TOTAL.json`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d) => {
+        const n = d.count_unique || d.count;
+        if (!n) return;
+        document.getElementById("visitor-count").textContent = n;
+        document.getElementById("visitor-line").hidden = false;
+      })
+      .catch(() => {});   // stay silent if offline or counter not public yet
+  }
 </script>
 </body>
 </html>
