@@ -227,7 +227,7 @@ const PHOTO_DATA = {
 </main>
 
 <footer>
-  <p id="visitor-line" hidden>👀 You are one of <strong id="visitor-count"></strong> visitors so far!</p>
+  <p id="visitor-line" hidden>👀 This gallery has been viewed <strong id="visitor-count"></strong> times!</p>
   Made with lots of beads (and a little help from my dad).
 </footer>
 
@@ -571,13 +571,17 @@ const PHOTO_DATA = {
     gc.src = "//gc.zgo.at/count.js";
     gc.setAttribute("data-goatcounter", `${base}/count`);
     document.body.appendChild(gc);
-    // 2) show the running visitor total on the page
+    // 2) show the running view total on the page (total pageviews, so it
+    //    grows with every visit). GoatCounter returns counts as strings that
+    //    may contain separators, and caches this endpoint, so it updates
+    //    periodically rather than the instant you refresh.
     fetch(`${base}/counter/TOTAL.json`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d) => {
-        const n = d.count_unique || d.count;
-        if (!n) return;
-        document.getElementById("visitor-count").textContent = n;
+        const raw = String(d.count ?? d.count_unique ?? "");
+        const n = parseInt(raw.replace(/[^0-9]/g, ""), 10) || 0;
+        if (n < 1) return;   // nothing recorded yet — leave the badge hidden
+        document.getElementById("visitor-count").textContent = n.toLocaleString();
         document.getElementById("visitor-line").hidden = false;
       })
       .catch(() => {});   // stay silent if offline or counter not public yet
