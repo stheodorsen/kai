@@ -127,6 +127,23 @@ const PHOTO_DATA = {
   .card h2 { margin: 0 0 4px; font-size: 1.15rem; }
   .card p { margin: 0; color: var(--ink-soft); font-size: 0.95rem; }
 
+  /* ---------- heart ("hot") button ---------- */
+  .card .hot {
+    margin-top: 12px; display: inline-flex; align-items: center; gap: 7px;
+    background: rgba(0,0,0,0.04); border: 1px solid var(--line);
+    border-radius: 999px; padding: 5px 12px; cursor: pointer;
+    font: inherit; font-size: 0.95rem; color: var(--ink);
+    transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
+  }
+  .card .hot:hover { transform: scale(1.06); }
+  .card .hot:focus-visible { outline: 3px solid var(--bead-blue); outline-offset: 2px; }
+  .card .hot.liked { background: #ffe3ec; border-color: #ff9ebb; color: #c2185b; cursor: default; }
+  .card .hot-emoji { font-size: 1.05rem; line-height: 1; }
+  .card .hot.pop .hot-emoji { animation: hotpop 0.32s ease; }
+  .card .hot-count { font-variant-numeric: tabular-nums; }
+  @keyframes hotpop { 0% { transform: scale(1); } 45% { transform: scale(1.6); } 100% { transform: scale(1); } }
+  @media (prefers-reduced-motion: reduce) { .card .hot:hover { transform: none; } .card .hot.pop .hot-emoji { animation: none; } }
+
   /* ---------- how I make them ---------- */
   .steps {
     display: grid; gap: 18px; margin: 18px 0 0;
@@ -231,6 +248,12 @@ const PHOTO_DATA = {
   // Put just that code between the quotes to switch analytics on. Leave it
   // empty ("") and nothing is tracked and no counter is shown.
   const GOATCOUNTER_CODE = "";
+
+  // Heart ("hot") buttons: a shared count per creation that grows as visitors
+  // click. Uses a free public counter API (no signup). If it ever stops
+  // working, swap HOT_API for another counter service and keep HOT_NS unique.
+  const HOT_API = "https://abacus.jasoncameron.dev";
+  const HOT_NS  = "kaisbeadart-stheodorsen-hearts";
 
   // Each creation shows its photo. You can also draw creations from a
   // pattern instead — a grid of letters where each letter is a bead colour:
@@ -457,6 +480,22 @@ const PHOTO_DATA = {
   soundToggle.addEventListener("click", () => { Sound.setMuted(!Sound.isMuted()); refreshToggle(); });
   document.body.appendChild(soundToggle);
 
+  /* ---------- heart ("hot") counter ---------- */
+  const Hearts = (() => {
+    const liked = (k) => { try { return localStorage.getItem("hot-" + k) === "1"; } catch (e) { return false; } };
+    const remember = (k) => { try { localStorage.setItem("hot-" + k, "1"); } catch (e) {} };
+    const fmt = (n) => (Number(n) || 0).toLocaleString();
+    const val = (d) => Number(d && (d.value ?? d.count ?? d.Count)) || 0;   // tolerate a few API shapes
+    const key = (item) => item.photo
+      ? item.photo.split("/").pop().replace(/\.[^.]+$/, "")
+      : (item.title || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const req = (verb, k) =>
+      fetch(`${HOT_API}/${verb}/${HOT_NS}/${encodeURIComponent(k)}`)
+        .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+        .then(val);
+    return { liked, remember, fmt, key, get: (k) => req("get", k), hit: (k) => req("hit", k) };
+  })();
+
   const galleryEl = document.getElementById("gallery");
   GALLERY.forEach((item) => {
     const card = document.createElement("article");
@@ -486,6 +525,39 @@ const PHOTO_DATA = {
     const p = document.createElement("p");
     p.textContent = item.note || "";
     info.append(h2, p);
+
+    // heart ("hot") button with a shared, growing count
+    const hotKey = Hearts.key(item);
+    const hot = document.createElement("button");
+    hot.type = "button";
+    hot.className = "hot";
+    hot.setAttribute("aria-label", `Give ${item.title} a heart`);
+    const heartEmoji = document.createElement("span");
+    heartEmoji.className = "hot-emoji";
+    const heartNum = document.createElement("span");
+    heartNum.className = "hot-count";
+    hot.append(heartEmoji, heartNum);
+    info.appendChild(hot);
+
+    let count = 0;
+    let isLiked = Hearts.liked(hotKey);
+    const paint = () => {
+      heartEmoji.textContent = isLiked ? "❤️" : "🤍";
+      heartNum.textContent = Hearts.fmt(count);
+      hot.classList.toggle("liked", isLiked);
+    };
+    paint();
+    Hearts.get(hotKey).then((v) => { count = v; paint(); }).catch(() => {});
+    hot.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (isLiked) return;                       // one heart per visitor per piece
+      isLiked = true; count += 1; Hearts.remember(hotKey);
+      paint();
+      hot.classList.remove("pop"); void hot.offsetWidth; hot.classList.add("pop");
+      if (item.sound) Sound.play(item.sound);
+      Hearts.hit(hotKey).then((v) => { count = v; paint(); }).catch(() => {});
+    });
+
     card.append(art, info);
     galleryEl.appendChild(card);
   });
