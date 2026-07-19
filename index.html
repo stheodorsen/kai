@@ -759,7 +759,8 @@ const PHOTO_DATA = {
           throw new Error((data && data.message) || "send failed");
         }
       } catch (err) {
-        statusEl.textContent = "Sorry — that didn't send. Please check your connection and try again.";
+        console.error("share submit failed:", err);
+        statusEl.textContent = "Couldn't send — " + (err && err.message ? err.message : "network problem") + ". Please try again.";
         submitBtn.disabled = false;
       }
     });
