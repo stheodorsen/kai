@@ -273,6 +273,7 @@ const PHOTO_DATA = {
 
 <dialog id="share-dialog" aria-labelledby="share-title">
   <form id="share-form">
+    <input type="checkbox" name="botcheck" style="display:none" tabindex="-1" autocomplete="off" aria-hidden="true">
     <h2 id="share-title">Share your bead creation! 🎨</h2>
     <p class="share-note">A grown-up looks at every picture before it goes on the wall, so it won't show up right away.</p>
 
@@ -331,7 +332,7 @@ const PHOTO_DATA = {
   // approves each one and it's then added to the gallery. Get a free access
   // key in ~30s at https://web3forms.com (enter your email, no account needed)
   // and paste it below. Leave it empty ("") to hide the submit button.
-  const WEB3FORMS_KEY = "";
+  const WEB3FORMS_KEY = "0e955881-a5c1-4d1c-8b0f-5b71ffc8e9ae";
 
   // Each creation shows its photo. You can also draw creations from a
   // pattern instead — a grid of letters where each letter is a bead colour:
