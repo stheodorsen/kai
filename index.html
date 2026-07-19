@@ -334,6 +334,12 @@ const PHOTO_DATA = {
   // and paste it below. Leave it empty ("") to hide the submit button.
   const WEB3FORMS_KEY = "0e955881-a5c1-4d1c-8b0f-5b71ffc8e9ae";
 
+  // The email form's free plan can't carry file uploads, so submitted photos
+  // are hosted (free) on ImgBB and the email includes a link to view them.
+  // Get a free API key at https://api.imgbb.com/ ("Get API key") and paste it
+  // below. BOTH keys must be set for the upload button to appear.
+  const IMGBB_KEY = "";
+
   // Each creation shows its photo. You can also draw creations from a
   // pattern instead — a grid of letters where each letter is a bead colour:
   // r=red o=orange y=yellow g=green b=blue p=purple k=pink w=white .=empty
@@ -678,7 +684,7 @@ const PHOTO_DATA = {
   }
 
   /* ---------- "Share your creation" submissions ---------- */
-  if (WEB3FORMS_KEY) {
+  if (WEB3FORMS_KEY && IMGBB_KEY) {
     const dialog = document.getElementById("share-dialog");
     const form = document.getElementById("share-form");
     const fileInput = document.getElementById("share-photo");
@@ -742,13 +748,30 @@ const PHOTO_DATA = {
       statusEl.textContent = "Sending… ✨";
       try {
         const small = await shrink(pickedFile);
+
+        // 1) upload the photo to ImgBB (free host) and get a link to it
+        const imgForm = new FormData();
+        imgForm.append("image", small, "creation.jpg");
+        const up = await fetch(
+          "https://api.imgbb.com/1/upload?key=" + encodeURIComponent(IMGBB_KEY),
+          { method: "POST", body: imgForm }
+        );
+        const upData = await up.json().catch(() => ({}));
+        if (!up.ok || !upData.success || !upData.data || !upData.data.url) {
+          throw new Error(
+            (upData && upData.error && upData.error.message) || "photo upload failed"
+          );
+        }
+
+        // 2) email the details + photo link (text only, works on the free plan)
         const fd = new FormData();
         fd.append("access_key", WEB3FORMS_KEY);
         fd.append("subject", "New bead creation submitted! 🎨");
         fd.append("from_name", "Kai's Bead Art website");
         fd.append("nickname", form.nickname.value || "(no name)");
         fd.append("caption", form.caption.value || "");
-        fd.append("attachment", small, "creation.jpg");
+        fd.append("photo", upData.data.url);
+        fd.append("remove_photo_link", upData.data.delete_url || "");
         const res = await fetch("https://api.web3forms.com/submit", { method: "POST", body: fd });
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.success) {
