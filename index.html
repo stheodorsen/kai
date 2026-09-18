@@ -403,11 +403,13 @@ const PHOTO_DATA = {
       title: "Argentina Flag",
       note: "The flag of Argentina — sky-blue and white with a golden Sun of May in the middle.",
       photo: "photos/argentina.jpg",
+      sound: "flutter",
     },
     {
       title: "Soccer Ball",
       note: "A black-and-white soccer ball, built from lots of little round beads.",
       photo: "photos/soccerball.jpg",
+      sound: "kick",
     },
     {
       title: "Rainbow Guitar",
@@ -546,6 +548,14 @@ const PHOTO_DATA = {
         noise(t, { type: "highpass", freq: 1500, dur: 0.22, gain: 0.35 });
         tone(t, { freq: 180, to: 60, type: "sine", dur: 0.3, gain: 0.6, delay: 0.24 });
         noise(t, { type: "lowpass", freq: 500, dur: 0.3, gain: 0.4, delay: 0.24 });
+      },
+      flutter(t) {                                           // flag snapping in the wind
+        for (let i = 0; i < 5; i++)
+          noise(t, { type: "bandpass", freq: 700, to: 1600, dur: 0.16, gain: 0.7, q: 0.3, delay: i * 0.09 });
+      },
+      kick(t) {                                              // boot meets ball
+        tone(t, { freq: 160, to: 45, type: "sine", dur: 0.18, gain: 0.7 });
+        noise(t, { type: "lowpass", freq: 2500, dur: 0.05, gain: 0.45 });
       },
       strum(t) {                                             // guitar chord strum
         [196, 246.9, 293.7, 392, 493.9, 587.3].forEach((f, i) =>       // G major, low string first
