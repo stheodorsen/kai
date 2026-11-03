@@ -1,0 +1,38 @@
+name: Deploy to GitHub Pages
+
+# Publishes the repo root to GitHub Pages on every push to main, by syncing
+# the content to the gh-pages branch that Pages serves from.
+#
+# Note: the preferred actions/upload-pages-artifact + actions/deploy-pages
+# flow requires the Pages source to be set to "GitHub Actions" in
+# Settings -> Pages, which only a repo admin can do (the workflow token gets
+# "Resource not accessible by integration" trying to configure it). Until
+# that setting is flipped, this branch-based deploy achieves the same result.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Publish repo root to gh-pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          touch .nojekyll
+          git checkout --orphan pages-deploy
+          git add -A
+          git commit -m "Deploy ${GITHUB_SHA}"
+          git push -f origin pages-deploy:gh-pages
